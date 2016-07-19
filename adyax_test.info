@@ -1,0 +1,12 @@
+name = Adyax test
+description = Test task for Adyax company
+package = ADYAX
+version = 7.x-1.0
+core = 7.x
+
+dependencies[] = views
+dependencies[] = features
+
+files[] = adyax_test.module
+files[] = adyax_test.install
+files[] = views/adyax_table.views.inc

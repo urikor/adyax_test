@@ -1,0 +1,163 @@
+<?php
+/**
+ * @file
+ * Install and uninstall functions for the Adyax test module.
+ * Installs content type, fields.
+ */
+
+/*=================================
+              HOOKS
+ ================================*/
+
+/**
+ * Implements hook_schema().
+ */
+function adyax_test_schema() {
+  $schema['adyax_table'] = array(
+    'description' => 'Adyax table.',
+    'fields' => array(
+      // ID column.
+      'id' => array(
+        'description' => 'The primary identifier.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      // Node nid column.
+      'nid' => array(
+        'description' => 'Node nid.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+        'default' => NULL,
+      ),
+      // Node title.
+      'title' => array(
+        'description' => 'Node title.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      // Text field column.
+      'adyax_field' => array(
+        'description' => 'Adyax test field.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+    ),
+    'indexes' => array(
+      'id' => array('id'),
+    ),
+    'unique keys' => array(
+      'nid' => array('nid'),
+    ),
+    'primary key' => array('id'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function adyax_test_install() {
+  $t = get_t();
+
+  // Creating test nodes.
+  for ($i = 1; $i <= 20; $i++) {
+    create_node(('Adyax test node ' . $i));
+  }
+
+  // Enable feature with view.
+  module_enable(array('adyax_field_view_feature'));
+
+  drupal_set_message($message = $t('20 <b>Adyax test node</b> nodes have been created.'), $type = 'status');
+  drupal_set_message($message = $t('Module <b>Adyax test</b> was successfully installed.'), $type = 'status');
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function adyax_test_uninstall() {
+  // Remove test table.
+  db_drop_table('adyax_table');
+
+  // Remove test nodes.
+  $string = 'Adyax test node';
+
+  $query = db_select('node', 'n')
+    ->fields('n', array('nid', 'title'))
+    ->condition('title', '%' . db_like($string) . '%', 'LIKE');
+  $result = $query->execute();
+
+  $nids = array();
+  foreach ($result as $node) {
+    $nids[] = $node->nid;
+  }
+  node_delete_multiple($nids);
+
+  // Feature disable;
+  if (module_exists('adyax_field_view_feature')) {
+    module_disable(array('adyax_field_view_feature'));
+  }
+
+  // Remove view.
+  $view = views_get_view('test4');
+  if ($view) {
+    $view = views_ui_cache_load('test4');
+    $view->delete();
+  }
+
+  drupal_set_message($message = t('Test nodes <b>Adyax test node</b> have been deleted.'), $type = 'status');
+  drupal_set_message($message = t('Test table <b>adyax_table</b> have been deleted.'), $type = 'status');
+  drupal_set_message($message = t('Module <b>Adyax Test</b> has been successfully uninstalled.'), $type = 'status');
+}
+
+/**
+ * Implements hook_disable().
+ */
+function adyax_test_disable() {
+  drupal_set_message(t('The <b>Adyax test</b> module has been disabled.'), $type = 'status');
+  drupal_set_message(t('You can to uninstall it on modules uninstall page, because it may has a set of data in database.'), $type = 'status');
+}
+
+/*=================================
+            FUNCTIONS
+ ================================*/
+
+/**
+ * Creating nodes function.
+ *
+ * @param string $title
+ *   node title
+ */
+function create_node($title) {
+  $body_text = 'Lorem ipsum dolor sit amet.';
+
+  $node = new stdClass();
+  $node->type = "page";
+  node_object_prepare($node);
+
+  $node->title = $title;
+  $node->language = LANGUAGE_NONE;
+
+  $node->uid = 1;
+
+  $node->body[$node->language][0]['value'] = $body_text;
+  $node->body[$node->language][0]['summary'] = text_summary($body_text);
+  $node->body[$node->language][0]['format'] = 'full_html';
+
+  $path = $title;
+  $node->path = array('alias' => $path);
+
+  if ($node = node_submit($node)) {
+    node_save($node);
+  }
+
+  if (!empty($node->nid)) {
+    _table_save('insert', $node->nid, $node->title, 'Adyax field ' . $node->nid);
+  }
+}

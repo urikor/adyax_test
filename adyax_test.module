@@ -1,0 +1,160 @@
+<?php
+/**
+ * @file
+ * Adyax test module.
+ */
+
+/*=================================
+              HOOKS
+ ================================*/
+
+/**
+ * Implements hook_menu().
+ */
+function adyax_test_menu() {
+  $items = array();
+
+  $items['adyax-test-page'] = array(
+    'title' => 'Adyax Test Page',
+    'page callback' => '_test_page',
+    'access callback' => TRUE,
+    'menu_name' => 'main-menu',
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => -49,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_form_BASE_FORM_ID_alter().
+ */
+function adyax_test_form_node_form_alter(&$form, &$form_state, $form_id) {
+  $form['adyax_info'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Adyax Info'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#group' => 'additional_settings',
+  );
+
+  // Field content for node.
+  $nid = arg(1);
+  $query = db_select('adyax_table', 'at')
+    ->fields('at', array('adyax_field'))
+    ->condition('nid', $nid);
+  $result = $query->execute()->fetchField();
+
+  $text_value = $result && !empty($result) ? $result : '';
+
+  $form['adyax_info']['adyax_text'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Text'),
+    '#default_value' => $text_value,
+    '#maxlength' => 225,
+  );
+}
+
+/**
+ * Implements hook_node_submit().
+ */
+function adyax_test_node_submit($node, $form, &$form_state) {
+  if (!empty($node->nid) && isset($_POST['adyax_text'])) {
+    _table_save('update', $node->nid, $node->title, $form_state['values']['adyax_text']);
+  }
+}
+
+/**
+ * Implements hook_node_insert().
+ */
+function adyax_test_node_insert($node) {
+  if (!empty($node->nid) && isset($_POST['adyax_text'])) {
+    _table_save('insert', $node->nid, $node->title, $_POST['adyax_text']);
+  }
+}
+
+/**
+ * Implements hook_node_delete().
+ */
+function adyax_test_node_delete($node) {
+  if (!empty($node->nid)) {
+    _table_save('delete', $node->nid);
+  }
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function adyax_test_views_api() {
+  return array(
+    'api' => '3.0-alpha1',
+    'path' => drupal_get_path('module', 'adyax_test') . '/views',
+  );
+}
+
+/*=================================
+            FUNCTIONS
+ ================================*/
+
+/**
+ * Implements Adyax page.
+ *
+ * @return string
+ *   Page content
+ */
+function _test_page() {
+  $out = '';
+  $view = views_get_view('task4');
+  if ($view && isset($view->display['block'])) {
+    $view->set_display('block');
+    $view->pre_execute();
+    $out = $view->render();
+  }
+  else {
+    drupal_set_message(t("View 'adyax_fields' or display 'block' doesn't exists"), $type = 'warning');
+  }
+
+  return $out;
+}
+
+/**
+ * Insert/Save/Update/Delete Adyax table row.
+ *
+ * @param string $mode
+ *   Operation with table.
+ * @param int $nid
+ *   Node nid.
+ * @param string $title
+ *   Node title.
+ * @param string $text
+ *   Adyax field.
+ */
+function _table_save($mode, $nid, $title = '', $text = '') {
+  switch ($mode) {
+    case 'insert':
+      $query = db_insert('adyax_table')
+        ->fields(array(
+          'nid' => $nid,
+          'title' => $title,
+          'adyax_field' => $text,
+        ));
+      $query->execute();
+      break;
+
+    case 'update':
+      $query = db_update('adyax_table')
+        ->fields(array(
+          'title' => $title,
+          'adyax_field' => $text,
+        ))
+        ->condition('nid', $nid);
+      $query->execute();
+      break;
+
+    case 'delete':
+      $query = db_delete('adyax_table')
+        ->condition('nid', $nid);
+      $query->execute();
+      break;
+  }
+}
